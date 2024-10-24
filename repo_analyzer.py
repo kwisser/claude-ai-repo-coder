@@ -1,6 +1,6 @@
 from claude_client import ClaudeClient
 from token_estimator import TokenEstimator
-from config import IGNORED_FILE_PATTERNS,IGNORED_DIRECTORIES
+from config import IGNORED_FILE_PATTERNS,IGNORED_DIRECTORIES, INPUT_TOKEN_PRICE
 from color_printer import ColorPrinter
 import os
 import sys
@@ -55,21 +55,10 @@ class RepoAnalyzer:
 
         Which files are most likely relevant for this task? Return only the filenames separated by newlines.
         """
-        price_per_token_old = 0.00015
-        price_per_token = 0.000003
-        # Token-Schätzung und Benutzerbestätigung
-        estimated_input_tokens = self.token_estimator.estimate_tokens(prompt)
-        estimated_output_tokens = 5000  # Annahme
-        total_estimated_tokens = estimated_input_tokens + estimated_output_tokens
-        estimated_cost_old = total_estimated_tokens * price_per_token_old
-        estimated_cost = total_estimated_tokens * price_per_token
 
-        if not prompt_user_confirmation(total_estimated_tokens, estimated_cost, self.printer):
-            self.printer.error("Anfrage abgebrochen.")
-            sys.exit(0)
 
         self.printer.info("Frage Claude nach relevanten Dateien...")
-        response = self.claude_client.send_message(prompt, self.token_estimator, self.printer)
+        response = self.claude_client.send_message(prompt)
 
         relevant_files = response.get("content").strip().splitlines()
         self.printer.info("Response for files: " + str(relevant_files))
@@ -77,44 +66,35 @@ class RepoAnalyzer:
         #print(relevant_files)
         return relevant_files
 
-    def analyze_changes(self, repo_path: str, files: List[str], task_description: str) -> Dict:
-        self.printer.info("Analysiere benötigte Änderungen...")
-
+    def read_file_contents(self, repo_path: str, files: List[str]) -> Dict[str, str]:
         file_contents = {}
         for rel_path in files:
             file_path = os.path.join(repo_path, rel_path)
             self.printer.info(f"Lese Datei: {self.printer.file_path(file_path)}")
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path, 'r', encoding='utf-8') as f:
                     file_contents[rel_path] = f.read()
-            except Exception as e:
-                print(e)
+            except FileNotFoundError:
+                self.printer.error(f"Datei nicht gefunden: {file_path}")
+            except UnicodeDecodeError:
+                self.printer.error(f"Encoding-Fehler beim Lesen von: {file_path}")
+        return file_contents
 
-        files_content = "\n\n".join([
-            f"=== {fname} ===\n{content}"
-            for fname, content in file_contents.items()
-        ])
+    def analyze_changes(self, repo_path: str, files: List[str], task_description: str) -> Dict:
+        self.printer.info("Analysiere benötigte Änderungen...")
+
+        files_content = self.read_file_contents(repo_path, files)
 
         prompt = f"""Given these files and this task: "{task_description}"
 
-    Files:
-    {files_content}
-
-    What changes should be made to accomplish this task? Provide specific code modifications for each file.
-    """
-
-        # Token-Schätzung und Benutzerbestätigung
-        estimated_input_tokens = self.token_estimator.estimate_tokens(prompt)
-        estimated_output_tokens = 1024  # Annahme
-        total_estimated_tokens = estimated_input_tokens + estimated_output_tokens
-        estimated_cost = total_estimated_tokens * 0.00015
-
-        if not prompt_user_confirmation(total_estimated_tokens, estimated_cost, self.printer):
-            self.printer.error("Anfrage abgebrochen.")
-            sys.exit(0)
+        Files:
+        {files_content}
+    
+        What changes should be made to accomplish this task? Provide specific code modifications for each file.
+        """
 
         self.printer.info("Frage Claude nach Änderungsvorschlägen...")
-        response = self.claude_client.send_message(prompt, self.token_estimator, self.printer)
+        response = self.claude_client.send_message(prompt)
 
         return {
             "task": task_description,
@@ -123,28 +103,12 @@ class RepoAnalyzer:
         }
 
     def ask_followup_question(self, question: str) -> str:
-        """Allows asking follow-up questions about the previous analysis"""
-        if not self.conversation_history:
-            self.printer.error("Keine vorherige Analyse verfügbar.")
-            return
+        # Verwende den existierenden ClaudeClient mit der gespeicherten Historie
+        token_estimator = TokenEstimator()
+        printer = ColorPrinter()
 
-        context = "\n".join(self.conversation_history)
-        prompt = f"""Based on the previous analysis:
-
-    {context}
-
-    Follow-up question: {question}
-
-    Please provide a detailed answer."""
-
-        response = self.claude_client.send_message(
-            prompt,
-            self.token_estimator,
-            self.printer
-        )
-
-        self.conversation_history.append(f"Q: {question}\nA: {response['content']}")
-        return response['content']
+        response = self.claude_client.send_message(question)
+        return response["content"]
 
 
 
