@@ -13,8 +13,6 @@ class ClaudeClient:
             region=location,
             project_id=project_id
         )
-        self.price_per_input_token = INPUT_TOKEN_PRICE
-        self.price_per_output_token = OUTPUT_TOKEN_PRICE
         self.printer = ColorPrinter()
         self.token_estimator = TokenEstimator()
         self.message_history = []
@@ -24,8 +22,8 @@ class ClaudeClient:
         estimated_output_tokens = MAX_OUTPUT_TOKEN
         total_estimated_tokens = estimated_input_tokens + estimated_output_tokens
 
-        estimated_cost = (estimated_input_tokens * self.price_per_input_token +
-                          estimated_output_tokens * self.price_per_output_token)
+        estimated_cost = (estimated_input_tokens * INPUT_TOKEN_PRICE +
+                          estimated_output_tokens * OUTPUT_TOKEN_PRICE)
 
         if not prompt_user_confirmation(total_estimated_tokens, estimated_cost, self.printer):
             self.printer.error("Anfrage abgebrochen.")
@@ -52,8 +50,8 @@ class ClaudeClient:
     def _print_usage_stats(self, response, printer):
         used_input_tokens = response.usage.input_tokens
         used_output_tokens = response.usage.output_tokens
-        cost_input = used_input_tokens * self.price_per_input_token
-        cost_output = used_output_tokens * self.price_per_output_token
+        cost_input = used_input_tokens * INPUT_TOKEN_PRICE
+        cost_output = used_output_tokens * OUTPUT_TOKEN_PRICE
 
         printer.highlight(
             f"Used input tokens: {used_input_tokens} Used output tokens: {used_output_tokens}")
