@@ -103,7 +103,7 @@ class RepoAnalyzer:
         all_files = []
         for root, dirs, files in os.walk(repo_path):
             # Ignoriere node_modules Verzeichnisse
-            dirs[:] = [d for d in dirs if d != 'node_modules' and d != '.git' and d != '.next' and d != 'resources' and d != '.venv' and d != '.idea' and d != '__pycache__']
+            dirs[:] = [d for d in dirs if d != 'node_modules' and d != '.git' and d != '.next' and d != 'resources' and d != '.venv' and d != '.idea' and d != '__pycache__' and d !='classes']
             for file in files:
                 file_path = os.path.join(root, file)
                 if not self.should_ignore(file_path):
@@ -113,11 +113,18 @@ class RepoAnalyzer:
         # Erstelle die Liste der Dateien für den Prompt
         files_context = "\n".join([f"- {f}" for f in all_files])
 
+	# Wenn task_description mit """ beginnt und endet, verwende den kompletten String
+        task = task_description.strip()
+        if task.startswith('"""') and task.endswith('"""'):
+            task = task[3:-3].strip()
+        else:
+            task = f'"{task}"'  # Sonst in einfache Anführungszeichen setzen
+
         prompt = f"""Given the following files in a repository and this task: "{task_description}"
 
         Files:
         {files_context}
-    
+
         Which files are most likely relevant for this task? Return only the filenames separated by newlines.
         """
         price_per_token_old=0.00015

@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "claude-ai-repo-coder"
+version = "0.1.0"
+description = ""
+authors = ["Klemens Wisser <wisserklemens@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+anthropic = {extras = ["vertex"], version = "^0.37.1"}
+google-cloud-aiplatform = "^1.70.0"
+tiktoken = "^0.8.0"
+colorama = "^0.4.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
