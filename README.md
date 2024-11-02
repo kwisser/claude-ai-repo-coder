@@ -1,8 +1,8 @@
-# Claude AI Repo Coder
+# Claude AI Repo Coder 🛠️🤖
 
 A Python tool that uses Claude AI to analyze repositories and suggest code changes based on natural language tasks.
 
-## Features
+## ✨ Features
 
 - Intelligent file selection based on task requirements
 - Automated code analysis and change recommendations
