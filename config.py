@@ -1,5 +1,16 @@
 MAX_OUTPUT_TOKEN=5000
 
+DEFAULT_OUTPUT_TOKENS = 1024
+
+IGNORED_DIRECTORIES = {
+    'node_modules', '.git', '.next',
+    'resources', '.venv', '.idea', '__pycache__'
+}
+
+INPUT_TOKEN_PRICE = 0.000003
+OUTPUT_TOKEN_PRICE = 0.000015
+
+
 IGNORED_FILE_PATTERNS = [
     # Dependency Directories
     "node_modules/*",
