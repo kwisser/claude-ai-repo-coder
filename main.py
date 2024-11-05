@@ -1,4 +1,3 @@
-import argparse
 import sys
 from colorama import init, Fore, Style
 import asyncio

@@ -1,4 +1,4 @@
-from colorama import init, Fore, Style
+from colorama import Fore, Style
 
 class ColorPrinter:
     @staticmethod

@@ -1,5 +1,5 @@
 import argparse
-from colorama import init, Fore, Style
+from colorama import Fore, Style
 
 def create_argument_parser():
     parser = argparse.ArgumentParser(

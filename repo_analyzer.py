@@ -116,7 +116,7 @@ class RepoAnalyzer:
         """
         Read contents of specified files asynchronously with caching.
         """
-        file_contents = {}
+
         tasks = []
 
         async def read_file(rel_path: str) -> tuple[str, str]:
