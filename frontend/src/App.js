@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ResponseDisplay from './ResponseDisplay';
-import api from './services/api';
+import {analyzeRepository, askFollowUpQuestion, confirmAnalysis} from './services/api';
 import './styles.css';
 import ConfirmationDialog from './ConfirmationDialog';
 
@@ -10,13 +10,12 @@ function App() {
   const [followUpQuestion, setFollowUpQuestion] = useState('');
   const [confirmation, setConfirmation] = useState(null);  // for confirmation dialog
 
-  // Add handler function
   const handleFollowUpSubmit = async (e) => {
     e.preventDefault();
     setState({ loading: true, error: null, response: null });
 
     try {
-      const result = await api.askFollowUpQuestion(followUpQuestion);
+      const result = await askFollowUpQuestion(followUpQuestion);
       setState({ loading: false, error: null, response: result });
       setFollowUpQuestion(''); // Clear input after submission
     } catch (err) {
@@ -33,7 +32,7 @@ function App() {
     setState({ loading: true, error: null, response: null });
 
     try {
-      const estimationResult = await api.analyzeRepository(formData.task, formData.repoPath, false);
+      const estimationResult = await analyzeRepository(formData.task, formData.repoPath, false);
 
       if (estimationResult.needsConfirmation) {
         setState({ loading: false, error: null, response: null });
@@ -57,7 +56,7 @@ function App() {
     setConfirmation(null);  // Close confirmation dialog
 
     try {
-      const result = await api.confirmAnalysis(confirmation.requestId);
+      const result = await confirmAnalysis(confirmation.requestId);
       console.log('Analysis confirmed:', result);
       setState({ loading: false, error: null, response: result });
     } catch (err) {
