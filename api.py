@@ -9,14 +9,13 @@ import uuid
 app = Flask(__name__)
 CORS(app)
 
-# Initialize the required clients
 CLAUDE_LOCATION = os.getenv("CLAUDE_LOCATION", "us-central1")
 CLAUDE_PROJECT_ID = os.getenv("CLAUDE_PROJECT_ID")
 
 claude_client = ClaudeClient(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
 repo_analyzer = RepoAnalyzer(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
 
-# In-memory cache for pending analysis requests (can be replaced with Redis or other persistent storage)
+
 cache = {}
 
 
