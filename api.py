@@ -18,6 +18,32 @@ repo_analyzer = RepoAnalyzer(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
 
 cache = {}
 
+# RequestManager to handle repo_analyzer instances per request_id
+class RequestManager:
+    def __init__(self):
+        self.cache = {}
+
+    def create_analyzer(self, request_id, task, repo_path):
+        # Instantiate a new RepoAnalyzer and store it
+        analyzer = RepoAnalyzer(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
+        self.cache[request_id] = {
+            "repo_analyzer": analyzer,
+            "task": task,
+            "repoPath": repo_path
+        }
+        return analyzer
+
+    def get_analyzer(self, request_id):
+        # Retrieve the RepoAnalyzer for the given request_id
+        return self.cache.get(request_id)
+
+    def delete_analyzer(self, request_id):
+        # Clean up after request is complete or expired
+        if request_id in self.cache:
+            del self.cache[request_id]
+
+request_manager = RequestManager()
+
 
 def async_route(f):
     def wrapper(*args, **kwargs):
@@ -146,8 +172,8 @@ async def ask_followup():
         question = data.get("question")
         if not question:
             return jsonify({"error": "Frage ist erforderlich"}), 400
-            
-        response = claude_client.ask_followup_question(question)
+        print("Data: ", data)
+        response = repo_analyzer.ask_followup_question(question=data.get("question"))
         return jsonify({
             "response": response["content"],
             "usage": response["usage"]
