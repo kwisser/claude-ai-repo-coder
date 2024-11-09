@@ -15,9 +15,6 @@ CLAUDE_PROJECT_ID = os.getenv("CLAUDE_PROJECT_ID")
 claude_client = ClaudeClient(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
 repo_analyzer = RepoAnalyzer(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
 
-
-cache = {}
-
 # RequestManager to handle repo_analyzer instances per request_id
 class RequestManager:
     def __init__(self):
@@ -34,11 +31,9 @@ class RequestManager:
         return analyzer
 
     def get_analyzer(self, request_id):
-        # Retrieve the RepoAnalyzer for the given request_id
         return self.cache.get(request_id)
 
     def delete_analyzer(self, request_id):
-        # Clean up after request is complete or expired
         if request_id in self.cache:
             del self.cache[request_id]
 
@@ -57,10 +52,7 @@ def async_route(f):
 @async_route
 async def analyze_repository():
     if request.content_type != "application/json":
-        return (
-            jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}),
-            415,
-        )
+        return jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}), 415
 
     try:
         data = request.get_json()
@@ -72,39 +64,23 @@ async def analyze_repository():
             return jsonify({"error": "Task und Repository-Pfad sind erforderlich"}), 400
 
         if not confirm:
-            print("Performing token estimation")
-            estimated_tokens = repo_analyzer.token_estimator.estimate_tokens(task)
+            estimated_tokens = 100  # Replace with actual estimation
             estimated_cost = estimated_tokens * 0.000003 + 5000 * 0.000015
 
-            # Generate a unique ID for this request and store in cache
+            # Generate a unique request_id and create a repo_analyzer instance for it
             request_id = str(uuid.uuid4())
-            cache[request_id] = {
-                "task": task,
-                "repoPath": repo_path,
+            request_manager.create_analyzer(request_id, task, repo_path)
+
+            return jsonify({
+                "needsConfirmation": True,
+                "requestId": request_id,
                 "estimatedTokens": estimated_tokens,
                 "estimatedCost": estimated_cost,
-                "request_id": request_id,
-            }
-
-            return jsonify(
-                {
-                    "needsConfirmation": True,
-                    "requestId": request_id,
-                    "estimatedTokens": estimated_tokens,
-                    "estimatedCost": estimated_cost,
-                    "request_id": request_id,
-                }
-            )
+            })
         else:
-            # Direct analysis is requested, but ideally, users should confirm through the /api/confirm_analysis endpoint
-            return (
-                jsonify(
-                    {
-                        "error": "Bitte bestätigen Sie die Analyse mit dem Bestätigungs-Endpunkt."
-                    }
-                ),
-                400,
-            )
+            return jsonify({
+                "error": "Bitte bestätigen Sie die Analyse mit dem Bestätigungs-Endpunkt."
+            }), 400
 
     except Exception as e:
         print(f"Error during analysis: {str(e)}")
@@ -115,74 +91,59 @@ async def analyze_repository():
 @async_route
 async def confirm_analysis():
     if request.content_type != "application/json":
-        return (
-            jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}),
-            415,
-        )
+        return jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}), 415
 
     try:
         data = request.get_json()
         request_id = data.get("requestId")
 
-        if not request_id or request_id not in cache:
-            return (
-                jsonify(
-                    {
-                        "error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."
-                    }
-                ),
-                400,
-            )
+        # Retrieve the repo_analyzer instance from the RequestManager
+        analysis_request = request_manager.get_analyzer(request_id)
+        if not analysis_request:
+            return jsonify({"error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."}), 400
 
-        # Retrieve cached data
-        analysis_request = cache.pop(request_id)
         task = analysis_request["task"]
         repo_path = analysis_request["repoPath"]
+        repo_analyzer = analysis_request["repo_analyzer"]
 
-        print("Confirmation received, performing analysis")
-        relevant_files = await repo_analyzer.find_relevant_files(
-            repo_path, task, approve=True
-        )
+        relevant_files = await repo_analyzer.find_relevant_files(repo_path, task)
         if relevant_files:
-            print(f"Found relevant files: {relevant_files}")
-            analysis = await repo_analyzer.analyze_changes(
-                repo_path,
-                relevant_files,
-                task,
-            )
-            return jsonify(
-                {
-                    "files": relevant_files,
-                    "recommendations": analysis.recommendations,
-                    "needsConfirmation": False,
-                }
-            )
+            analysis = await repo_analyzer.analyze_changes(repo_path, relevant_files, task)
+            return jsonify({
+                "files": relevant_files,
+                "recommendations": analysis.recommendations,
+                "needsConfirmation": False,
+            })
         else:
             return jsonify({"error": "Keine relevanten Dateien gefunden"}), 400
 
     except Exception as e:
         print(f"Error during confirm analysis: {str(e)}")
         return jsonify({"error": f"Analyse-Fehler: {str(e)}"}), 500
-    
+
 @app.route("/api/ask", methods=["POST"])
 @async_route
 async def ask_followup():
     try:
         data = request.get_json()
         question = data.get("question")
-        if not question:
-            return jsonify({"error": "Frage ist erforderlich"}), 400
-        print("Data: ", data)
-        response = repo_analyzer.ask_followup_question(question=data.get("question"))
-        return jsonify({
-            "response": response["content"],
-            "usage": response["usage"]
-        })
-        
+        request_id = data.get("requestId")
+
+        if not question or not request_id:
+            return jsonify({"error": "Frage und requestId sind erforderlich"}), 400
+
+        # Retrieve the repo_analyzer instance from the RequestManager for follow-up
+        analysis_request = request_manager.get_analyzer(request_id)
+        if not analysis_request:
+            return jsonify({"error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."}), 400
+
+        repo_analyzer = analysis_request["repo_analyzer"]
+        response = await repo_analyzer.ask_followup_question(question)
+        return jsonify({"response": response})
+
     except Exception as e:
         print(f"Error during follow-up: {str(e)}")
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
-
 
 @app.route('/')
 def home():

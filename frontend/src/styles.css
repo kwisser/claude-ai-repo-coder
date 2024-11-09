@@ -316,3 +316,28 @@
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+.follow-up-answers {
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.qa-pair {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background-color: white;
+}
+
+.question {
+  margin-bottom: 1rem;
+  color: #495057;
+}
+
+.answer {
+  padding-left: 1rem;
+  border-left: 3px solid #0d6efd;
+}

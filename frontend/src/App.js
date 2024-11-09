@@ -8,21 +8,9 @@ function App() {
   const [formData, setFormData] = useState({ task: '', repoPath: '' });
   const [state, setState] = useState({ loading: false, error: null, response: null });
   const [followUpQuestion, setFollowUpQuestion] = useState('');
-  const [confirmation, setConfirmation] = useState(null);  // for confirmation dialog
+  const [confirmation, setConfirmation] = useState(null);
+  const [requestId, setRequestId] = useState(null);  // Store the request ID here
 
-  // Add handler function
-  const handleFollowUpSubmit = async (e) => {
-    e.preventDefault();
-    setState({ loading: true, error: null, response: null });
-
-    try {
-      const result = await api.askFollowUpQuestion(followUpQuestion);
-      setState({ loading: false, error: null, response: result });
-      setFollowUpQuestion(''); // Clear input after submission
-    } catch (err) {
-      setState({ loading: false, error: err.message, response: null });
-    }
-  };
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -31,6 +19,7 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setState({ loading: true, error: null, response: null });
+    setRequestId(null);
 
     try {
       const estimationResult = await api.analyzeRepository(formData.task, formData.repoPath, false);
@@ -39,9 +28,9 @@ function App() {
         setState({ loading: false, error: null, response: null });
         setConfirmation({
           estimatedTokens: estimationResult.estimatedTokens,
-          estimatedCost: estimationResult.estimatedCost,
-          requestId: estimationResult.requestId  // Save requestId for confirmation
+          estimatedCost: estimationResult.estimatedCost
         });
+        setRequestId(estimationResult.requestId);  // Save the request ID for confirmation
         return;
       }
 
@@ -52,19 +41,40 @@ function App() {
   };
 
   const handleConfirmAnalysis = async () => {
-    console.log('Confirming analysis...');
     setState({ loading: true, error: null, response: null });
-    setConfirmation(null);  // Close confirmation dialog
+    setConfirmation(null);
 
     try {
-      const result = await api.confirmAnalysis(confirmation.requestId);
-      console.log('Analysis confirmed:', result);
+      const result = await api.confirmAnalysis(requestId);  // Send requestId with confirmation
       setState({ loading: false, error: null, response: result });
     } catch (err) {
       setState({ loading: false, error: err.message || 'Ein unerwarteter Fehler ist aufgetreten', response: null });
     }
   };
 
+  const handleFollowUpQuestion = async (e) => {
+    e.preventDefault();
+    if (!followUpQuestion.trim()) return;
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const result = await api.askFollowUpQuestion(followUpQuestion, requestId);  // Send requestId with follow-up
+      setState(prev => ({
+        loading: false,
+        error: null,
+        response: {
+          ...prev.response,
+          followUpAnswers: [
+            ...(prev.response?.followUpAnswers || []),
+            { question: followUpQuestion, answer: result.response }
+          ]
+        }
+      }));
+      setFollowUpQuestion('');
+    } catch (err) {
+      setState(prev => ({ ...prev, loading: false, error: err.message }));
+    }
+  };
 
   return (
     <div className="app-container">
@@ -140,15 +150,15 @@ function App() {
           <ConfirmationDialog
             estimatedTokens={confirmation.estimatedTokens}
             estimatedCost={confirmation.estimatedCost}
-            requestId={confirmation.requestId}  // Pass requestId to dialog
             onConfirm={handleConfirmAnalysis}
             onCancel={() => setConfirmation(null)}
           />
         )}
+
         {state.response && (
-          <div className="follow-up-section">
-            <h3>Nachfragen</h3>
-            <form onSubmit={handleFollowUpSubmit} className="follow-up-form">
+          <form onSubmit={handleFollowUpQuestion} className="follow-up-form">
+            <h3>Weitere Fragen?</h3>
+            <div className="input-group">
               <input
                 type="text"
                 value={followUpQuestion}
@@ -158,12 +168,29 @@ function App() {
               />
               <button
                 type="submit"
-                className="follow-up-button"
                 disabled={state.loading || !followUpQuestion.trim()}
+                className="follow-up-button"
               >
                 Fragen
               </button>
-            </form>
+            </div>
+          </form>
+        )}
+        {state.response?.followUpAnswers && state.response.followUpAnswers.length > 0 && (
+          <div className="follow-up-answers">
+            <h3>Nachfragen & Antworten:</h3>
+            {state.response.followUpAnswers.map((qa, index) => (
+              <div key={index} className="qa-pair">
+                <div className="question">
+                  <strong>Frage:</strong>
+                  <p>{qa.question}</p>
+                </div>
+                <div className="answer">
+                  <strong>Antwort:</strong>
+                  <ResponseDisplay content={qa.answer} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </main>
