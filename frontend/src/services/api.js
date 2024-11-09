@@ -3,7 +3,6 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:443/api';
 
-
 const axiosInstance = axios.create({
     baseURL: API_BASE_URL,
     timeout: 300000,
@@ -12,9 +11,9 @@ const axiosInstance = axios.create({
     },
     withCredentials: false
 });
+
 const api = {
     async analyzeRepository(task, repoPath, confirmed = false) {
-        console.log(`Sending request with confirmed=${confirmed}`);
         try {
             const response = await axiosInstance.post('/analyze', {
                 task,
@@ -52,7 +51,7 @@ const api = {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             return response.data;
         } catch (error) {
             throw new Error(error.response?.data?.error || 'Ein Fehler ist bei der Bestätigung aufgetreten');

@@ -1,4 +1,3 @@
-
 # Claude AI Repo Coder 🛠️🤖
 
 A **Python tool** that leverages **Claude AI** to intelligently analyze repositories and suggest code changes based on **natural language tasks**. Perfect for developers who want to speed up code reviews and refactoring! 🚀
@@ -22,6 +21,7 @@ A **Python tool** that leverages **Claude AI** to intelligently analyze reposito
 
 1. **Clone the repository** 📥
 2. Install dependencies using **Poetry**:
+
    ```bash
    poetry install
    ```
@@ -29,6 +29,7 @@ A **Python tool** that leverages **Claude AI** to intelligently analyze reposito
 ## ⚙️ Usage
 
 Basic usage:
+
 ```bash
 python main.py <repo_path> "<task_description>" --project-id <your-gcp-project-id>
 ```
@@ -57,4 +58,4 @@ The tool relies on the following packages:
 
 ## 👤 Author
 
-Klemens Wisser 📧 wisserklemens@gmail.com
+Klemens Wisser 📧 <wisserklemens@gmail.com>

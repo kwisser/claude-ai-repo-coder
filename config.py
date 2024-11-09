@@ -4,7 +4,7 @@ DEFAULT_OUTPUT_TOKENS = 1024
 
 IGNORED_DIRECTORIES = {
     'node_modules', '.git', '.next',
-    'resources', '.venv', '.idea', '__pycache__'
+    'resources', '.venv', '.idea', '__pycache__', "env", "logs"
 }
 
 INPUT_TOKEN_PRICE = 0.000003

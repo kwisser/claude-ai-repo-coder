@@ -137,12 +137,226 @@ async def confirm_analysis():
     except Exception as e:
         print(f"Error during confirm analysis: {str(e)}")
         return jsonify({"error": f"Analyse-Fehler: {str(e)}"}), 500
+    
+@app.route("/api/ask", methods=["POST"])
+@async_route
+async def ask_followup():
+    try:
+        data = request.get_json()
+        question = data.get("question")
+        if not question:
+            return jsonify({"error": "Frage ist erforderlich"}), 400
+            
+        response = claude_client.ask_followup_question(question)
+        return jsonify({
+            "response": response["content"],
+            "usage": response["usage"]
+        })
+        
+    except Exception as e:
+        print(f"Error during follow-up: {str(e)}")
+        return jsonify({"error": f"Fehler: {str(e)}"}), 500
 
 
-@app.route("/")
-def hello_world():
-    return "Hello World"
+@app.route('/')
+def home():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Code Analyzer Assistant API</title>
+        <style>
+            :root {
+                --primary-color: #2563eb;
+                --secondary-color: #1e40af;
+                --background-color: #f8fafc;
+                --text-color: #1e293b;
+                --code-bg: #1e293b;
+                --code-color: #e2e8f0;
+            }
 
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                color: var(--text-color);
+                background: var(--background-color);
+                padding: 2rem;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 2rem;
+                background: white;
+                border-radius: 1rem;
+                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            }
+
+            h1 {
+                color: var(--primary-color);
+                font-size: 2.5rem;
+                margin-bottom: 1rem;
+                text-align: center;
+            }
+
+            .description {
+                text-align: center;
+                margin-bottom: 2rem;
+                color: #64748b;
+                font-size: 1.1rem;
+            }
+
+            .features {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 2rem;
+                margin-bottom: 3rem;
+            }
+
+            .feature-card {
+                padding: 1.5rem;
+                background: #f8fafc;
+                border-radius: 0.5rem;
+                border: 1px solid #e2e8f0;
+            }
+
+            .feature-card h3 {
+                color: var(--primary-color);
+                margin-bottom: 0.5rem;
+            }
+
+            .api-section {
+                margin-top: 3rem;
+            }
+
+            .endpoint {
+                background: var(--code-bg);
+                color: var(--code-color);
+                padding: 1rem;
+                border-radius: 0.5rem;
+                margin: 1rem 0;
+                font-family: 'Fira Code', monospace;
+            }
+
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1rem;
+                margin: 2rem 0;
+                text-align: center;
+            }
+
+            .stat-card {
+                background: var(--primary-color);
+                color: white;
+                padding: 1.5rem;
+                border-radius: 0.5rem;
+            }
+
+            .stat-number {
+                font-size: 2rem;
+                font-weight: bold;
+                margin-bottom: 0.5rem;
+            }
+
+            .footer {
+                text-align: center;
+                margin-top: 3rem;
+                padding-top: 2rem;
+                border-top: 1px solid #e2e8f0;
+                color: #64748b;
+            }
+
+            .cta-button {
+                display: inline-block;
+                background: var(--primary-color);
+                color: white;
+                padding: 0.75rem 1.5rem;
+                border-radius: 0.5rem;
+                text-decoration: none;
+                margin-top: 1rem;
+                transition: background-color 0.3s;
+            }
+
+            .cta-button:hover {
+                background: var(--secondary-color);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🚀 Code Analyzer Assistant</h1>
+            <p class="description">
+                Eine leistungsstarke API für intelligente Code-Analyse und Entwicklungsunterstützung,
+                angetrieben durch Claude AI
+            </p>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">3</div>
+                    <div>API Endpoints</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">300s</div>
+                    <div>Timeout</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">REST</div>
+                    <div>API Type</div>
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="feature-card">
+                    <h3>🔍 Intelligente Code-Analyse</h3>
+                    <p>Analysiert Ihr Repository und findet die relevantesten Dateien für Ihre Aufgabe.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💡 Smarte Empfehlungen</h3>
+                    <p>Erhalten Sie detaillierte Empfehlungen und Verbesserungsvorschläge für Ihren Code.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🤔 Follow-up Fragen</h3>
+                    <p>Stellen Sie Nachfragen zur Analyse und erhalten Sie präzise Antworten.</p>
+                </div>
+            </div>
+
+            <div class="api-section">
+                <h2>API Endpoints</h2>
+                <div class="endpoint">
+                    POST /api/analyze
+                    <br>
+                    POST /api/confirm_analysis
+                    <br>
+                    POST /api/ask
+                </div>
+            </div>
+
+            <div class="api-section">
+                <h2>Schnellstart</h2>
+                <div class="endpoint">
+                    curl -X POST http://127.0.0.1:5000/api/analyze \\
+                    -H "Content-Type: application/json" \\
+                    -d '{"task": "Ihre Aufgabe", "repoPath": "/pfad/zum/repo"}'
+                </div>
+            </div>
+
+            <div class="footer">
+                <p>Entwickelt mit ❤️ für besseren Code</p>
+                <a href="http://127.0.0.1:5000/api" class="cta-button">API Dokumentation</a>
+            </div>
+        </div>
+    </body>
+    </html>
+"""
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=443)
