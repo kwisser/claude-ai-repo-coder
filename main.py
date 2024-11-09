@@ -68,6 +68,20 @@ async def main():
             response = await analyzer.ask_followup_question(question)  # Asynchroner Aufruf
             print(f"\n{Fore.GREEN}{response}{Style.RESET_ALL}")
 
+            # Check if response indicates need for additional files
+            if "additional files" in response.lower() or "zusätzliche dateien" in response.lower():
+                printer.highlight("\nZusätzliche Dateien werden benötigt.")
+                # Find relevant files for the follow-up question
+                new_relevant_files = await analyzer.find_relevant_files(args.repo_path, question)
+
+                if new_relevant_files:
+                    printer.success("Gefundene zusätzliche relevante Dateien:")
+                    for f in new_relevant_files:
+                        print(f"  {printer.file_path(f)}")
+                    printer.highlight("\nBitte stellen Sie Ihre Frage erneut und beziehen Sie diese Dateien mit ein.")
+                else:
+                    printer.warning("Keine zusätzlichen relevanten Dateien gefunden!")
+
 
 if __name__ == "__main__":
     try:
