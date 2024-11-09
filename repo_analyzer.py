@@ -61,7 +61,7 @@ class RepoAnalyzer:
             logger.error(f"Error checking ignore status for {file_path}: {e}")
             return True
 
-    async def find_relevant_files(self, repo_path: str, task_description: str) -> List[str]:
+    async def find_relevant_files(self, repo_path: str, task_description: str, approve=False) -> List[str]:
         """
         Find files relevant to the given task asynchronously.
 
@@ -96,10 +96,11 @@ class RepoAnalyzer:
         # Create context for Claude
         files_context = "\n".join([f"- {f}" for f in all_files])
         prompt = self._create_file_selection_prompt(task_description, files_context)
+        print("Prompt:", prompt)
 
         try:
             logger.info("Querying Claude for relevant files...")
-            response = await self._async_claude_query(prompt)
+            response = await self._async_claude_query(prompt, auto_approve=approve)
             relevant_files = response.get("content").strip().splitlines()
 
             # Validate returned files exist in repository
@@ -158,7 +159,7 @@ class RepoAnalyzer:
         prompt = self._create_analysis_prompt(task_description, files_content)
 
         try:
-            response = await self._async_claude_query(prompt)
+            response = await self._async_claude_query(prompt, auto_approve=False)
             return AnalysisResult(
                 task=task_description,
                 files=files,
@@ -171,7 +172,7 @@ class RepoAnalyzer:
     async def ask_followup_question(self, question: str) -> str:
         """Handle follow-up questions asynchronously"""
         try:
-            response = await self._async_claude_query(question)
+            response = await self._async_claude_query(question, auto_approve=False)
             return response["content"]
         except Exception as e:
             logger.error(f"Error during follow-up question: {e}")
@@ -197,7 +198,7 @@ class RepoAnalyzer:
         What changes should be made to accomplish this task? Provide specific code modifications for each file.
         """
 
-    async def _async_claude_query(self, prompt: str) -> dict:
+    async def _async_claude_query(self, prompt: str, auto_approve=False) -> dict:
         """Wrapper for async Claude queries"""
         return self.claude_client.send_message(prompt)
 
