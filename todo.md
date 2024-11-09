@@ -22,8 +22,6 @@ curl 'http://127.0.0.1:5000/api/confirm' \
 
 ### TO Confirm Request after you saw what it costs
 
-
-
 /api/confirm
 
 

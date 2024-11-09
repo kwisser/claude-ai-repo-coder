@@ -31,8 +31,11 @@ def async_route(f):
 @app.route("/api/analyze", methods=["POST"])
 @async_route
 async def analyze_repository():
-    if request.content_type != 'application/json':
-        return jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}), 415
+    if request.content_type != "application/json":
+        return (
+            jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}),
+            415,
+        )
 
     try:
         data = request.get_json()
@@ -55,7 +58,7 @@ async def analyze_repository():
                 "repoPath": repo_path,
                 "estimatedTokens": estimated_tokens,
                 "estimatedCost": estimated_cost,
-                "request_id": request_id
+                "request_id": request_id,
             }
 
             return jsonify(
@@ -64,12 +67,19 @@ async def analyze_repository():
                     "requestId": request_id,
                     "estimatedTokens": estimated_tokens,
                     "estimatedCost": estimated_cost,
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
             )
         else:
             # Direct analysis is requested, but ideally, users should confirm through the /api/confirm_analysis endpoint
-            return jsonify({"error": "Bitte bestätigen Sie die Analyse mit dem Bestätigungs-Endpunkt."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Bitte bestätigen Sie die Analyse mit dem Bestätigungs-Endpunkt."
+                    }
+                ),
+                400,
+            )
 
     except Exception as e:
         print(f"Error during analysis: {str(e)}")
@@ -79,15 +89,25 @@ async def analyze_repository():
 @app.route("/api/confirm", methods=["POST"])
 @async_route
 async def confirm_analysis():
-    if request.content_type != 'application/json':
-        return jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}), 415
+    if request.content_type != "application/json":
+        return (
+            jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}),
+            415,
+        )
 
     try:
         data = request.get_json()
         request_id = data.get("requestId")
 
         if not request_id or request_id not in cache:
-            return jsonify({"error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."
+                    }
+                ),
+                400,
+            )
 
         # Retrieve cached data
         analysis_request = cache.pop(request_id)
@@ -95,11 +115,15 @@ async def confirm_analysis():
         repo_path = analysis_request["repoPath"]
 
         print("Confirmation received, performing analysis")
-        relevant_files = await repo_analyzer.find_relevant_files(repo_path, task, approve=True)
+        relevant_files = await repo_analyzer.find_relevant_files(
+            repo_path, task, approve=True
+        )
         if relevant_files:
             print(f"Found relevant files: {relevant_files}")
             analysis = await repo_analyzer.analyze_changes(
-                repo_path, relevant_files, task, 
+                repo_path,
+                relevant_files,
+                task,
             )
             return jsonify(
                 {
@@ -116,10 +140,10 @@ async def confirm_analysis():
         return jsonify({"error": f"Analyse-Fehler: {str(e)}"}), 500
 
 
-@app.route('/')
+@app.route("/")
 def hello_world():
-    return 'Hello World'
+    return "Hello World"
 
 
-if __name__ == '__main__':
-    app.run()
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=443)
