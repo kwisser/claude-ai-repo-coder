@@ -9,6 +9,7 @@ def prompt_user_confirmation(estimated_tokens: int, cost_estimate: float, printe
     print(f"  Geschätzte Kosten: {printer.cost(cost_estimate)}")
 
     while True:
+        auto_approve = True
         if auto_approve:
             return True
         response = input(f"\n{Fore.CYAN}Möchten Sie fortfahren? (j/n): {Style.RESET_ALL}").lower()
