@@ -58,12 +58,17 @@ function App({ darkMode, setDarkMode }) {
 
       if (estimationResult.needsConfirmation) {
         const newConversation = {
-          id: estimationResult.requestId,  // Use requestId as the conversation ID
+          id: estimationResult.requestId,
           type: 'initial',
           task: formData.task,
-          response: estimationResult,
+          repoPath: formData.repoPath,
+          response: {
+            files: estimationResult.files,
+            recommendations: estimationResult.recommendations,
+            fullResponse: estimationResult
+          },
           followUps: [],
-          timestamp: new Date().toISOString() 
+          timestamp: new Date().toISOString()
         };
         setConversationHistory([newConversation]);
         setCurrentConversationId(estimationResult.requestId);  // Set currentConversationId
@@ -87,6 +92,16 @@ function App({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleNewConversation = () => {
+    setFormData({ task: '', repoPath: '' });
+    setState({ loading: false, error: null, response: null });
+    setFollowUpQuestion('');
+    setConfirmation(null);
+    setRequestId(null);
+    setConversationHistory([]);
+    setCurrentConversationId(null);
+  };
+
   const handleConfirmAnalysis = async () => {
     setState({ loading: true, error: null, response: null });
     setConfirmation(null);
@@ -107,14 +122,14 @@ function App({ darkMode, setDarkMode }) {
         localStorage.setItem('conversations', JSON.stringify(newConversations));
         return newConversations;
       });
-  
+
       // Clear current conversation if it's the one being deleted
       if (currentConversationId === convId) {
         setCurrentConversationId(null);
         setConversationHistory([]);
         setState({ loading: false, error: null, response: null });
       }
-  
+
       // Remove from Firestore if user is logged in
       if (user) {
         // Create proper document reference before deleting
@@ -130,24 +145,27 @@ function App({ darkMode, setDarkMode }) {
     e.preventDefault();
     if (!followUpQuestion.trim()) return;
     setState(prev => ({ ...prev, loading: true, error: null }));
-
+  
     try {
-      const result = await api.askFollowUpQuestion(followUpQuestion, requestId);  // Send requestId with follow-up
-
-      setAllConversations(prev => prev.map(conv => {
-        if (conv.id === currentConversationId) {
-          return {
-            ...conv,
-            followUps: [...conv.followUps, {
-              question: followUpQuestion,
-              response: result.response,
-              timestamp: new Date()
-            }]
-          };
-        }
-        return conv;
-      }));
-
+      const result = await api.askFollowUpQuestion(followUpQuestion, requestId);
+  
+      setAllConversations(prev => {
+        const newConversations = prev.map(conv => {
+          if (conv.id === currentConversationId) {
+            return {
+              ...conv,
+              followUps: [...conv.followUps, {
+                question: followUpQuestion,
+                response: result.response
+              }]
+            };
+          }
+          return conv;
+        });
+        localStorage.setItem('conversations', JSON.stringify(newConversations));
+        return newConversations;
+      });
+  
       if (user) {
         await addDoc(chatsCollection, {
           userId: user.uid,
@@ -158,7 +176,7 @@ function App({ darkMode, setDarkMode }) {
           requestId: requestId
         });
       }
-
+  
       setConversationHistory(prev => [...prev, {
         type: 'followUp',
         question: followUpQuestion,
@@ -174,8 +192,35 @@ function App({ darkMode, setDarkMode }) {
   const handleConversationClick = (conv) => {
     setCurrentConversationId(conv.id);
     setRequestId(conv.id);
-    setConversationHistory([conv, ...conv.followUps]);
-    setState({ loading: false, error: null, response: conv.response });
+    setFormData({
+      task: conv.task,
+      repoPath: conv.repoPath
+    });
+
+    setState({
+      loading: false,
+      error: null,
+      response: {
+        files: conv.response.files,
+        recommendations: conv.response.recommendations,
+        ...conv.response.fullResponse
+      }
+    });
+
+
+    const initialEntry = {
+      type: 'initial',
+      task: conv.task,
+      response: conv.response
+    };
+
+    const followUpEntries = conv.followUps.map(followUp => ({
+      type: 'followUp',
+      question: followUp.question,
+      response: followUp.response
+    }));
+
+    setConversationHistory([initialEntry, ...followUpEntries]);
     setDrawerOpen(false);
   };
 
@@ -189,6 +234,13 @@ function App({ darkMode, setDarkMode }) {
     >
       <MenuIcon />
     </IconButton>
+    <Button
+      variant="contained"
+      onClick={handleNewConversation}
+      sx={{ position: 'fixed', left: 16, top: 120 }}
+    >
+      Neu
+    </Button>
 
     <Drawer
       anchor="left"
@@ -211,8 +263,7 @@ function App({ darkMode, setDarkMode }) {
               }
             >
               <ListItemText
-                primary={new Date(conv.timestamp).toLocaleString()}
-                secondary={
+                primary={
                   <>
                     <span>Task: {conv.task.substring(0, 50)}...</span>
                     {conv.followUps.length > 0 && (
@@ -222,6 +273,7 @@ function App({ darkMode, setDarkMode }) {
                     )}
                   </>
                 }
+                secondary={new Date(conv.timestamp).toLocaleString()}
               />
             </ListItem>
             {conv.followUps.map((followUp, index) => (
@@ -242,7 +294,7 @@ function App({ darkMode, setDarkMode }) {
         ))}
       </List>
     </Drawer>
-    <Container maxWidth="md" sx={{ mt: 8 }}> 
+    <Container maxWidth="md" sx={{ mt: 8 }}>
       <Box sx={{ my: 4 }}>
         <FormControlLabel
           control={
