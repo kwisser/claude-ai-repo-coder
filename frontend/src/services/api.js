@@ -40,8 +40,9 @@ const api = {
             }
             throw new Error(error.message || 'Ein Fehler ist bei der Bestätigung aufgetreten');
         }
-    },
-
+        throw new Error(error.message || 'Ein Fehler ist bei der Analyse aufgetreten');
+    }
+};
     async askFollowUpQuestion(question, requestId) {
         try {
             const response = await axiosInstance.post('/ask', {
@@ -56,4 +57,18 @@ const api = {
     }
 };
 
-export default api;
+export const confirmAnalysis = async (requestId) => {
+    try {
+        const response = await axiosInstance.post('/confirm', {
+            requestId
+        }, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.error || 'Ein Fehler ist bei der Bestätigung aufgetreten');
+    }
+}
