@@ -46,7 +46,8 @@ const api = {
         try {
             const response = await axiosInstance.post('/ask', {
                 question,
-                requestId
+                requestId,
+                withHistory: true
             });
             return response.data;
         } catch (error) {

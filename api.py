@@ -15,6 +15,7 @@ CLAUDE_PROJECT_ID = os.getenv("CLAUDE_PROJECT_ID")
 claude_client = ClaudeClient(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
 repo_analyzer = RepoAnalyzer(CLAUDE_LOCATION, CLAUDE_PROJECT_ID)
 
+
 # RequestManager to handle repo_analyzer instances per request_id
 class RequestManager:
     def __init__(self):
@@ -26,7 +27,7 @@ class RequestManager:
         self.cache[request_id] = {
             "repo_analyzer": analyzer,
             "task": task,
-            "repoPath": repo_path
+            "repoPath": repo_path,
         }
         return analyzer
 
@@ -36,6 +37,7 @@ class RequestManager:
     def delete_analyzer(self, request_id):
         if request_id in self.cache:
             del self.cache[request_id]
+
 
 request_manager = RequestManager()
 
@@ -52,7 +54,10 @@ def async_route(f):
 @async_route
 async def analyze_repository():
     if request.content_type != "application/json":
-        return jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}), 415
+        return (
+            jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}),
+            415,
+        )
 
     try:
         data = request.get_json()
@@ -71,16 +76,23 @@ async def analyze_repository():
             request_id = str(uuid.uuid4())
             request_manager.create_analyzer(request_id, task, repo_path)
 
-            return jsonify({
-                "needsConfirmation": True,
-                "requestId": request_id,
-                "estimatedTokens": estimated_tokens,
-                "estimatedCost": estimated_cost,
-            })
+            return jsonify(
+                {
+                    "needsConfirmation": True,
+                    "requestId": request_id,
+                    "estimatedTokens": estimated_tokens,
+                    "estimatedCost": estimated_cost,
+                }
+            )
         else:
-            return jsonify({
-                "error": "Bitte bestätigen Sie die Analyse mit dem Bestätigungs-Endpunkt."
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Bitte bestätigen Sie die Analyse mit dem Bestätigungs-Endpunkt."
+                    }
+                ),
+                400,
+            )
 
     except Exception as e:
         print(f"Error during analysis: {str(e)}")
@@ -91,7 +103,10 @@ async def analyze_repository():
 @async_route
 async def confirm_analysis():
     if request.content_type != "application/json":
-        return jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}), 415
+        return (
+            jsonify({"error": "Unsupported Media Type. Expected 'application/json'."}),
+            415,
+        )
 
     try:
         data = request.get_json()
@@ -100,7 +115,14 @@ async def confirm_analysis():
         # Retrieve the repo_analyzer instance from the RequestManager
         analysis_request = request_manager.get_analyzer(request_id)
         if not analysis_request:
-            return jsonify({"error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."
+                    }
+                ),
+                400,
+            )
 
         task = analysis_request["task"]
         repo_path = analysis_request["repoPath"]
@@ -108,18 +130,23 @@ async def confirm_analysis():
 
         relevant_files = await repo_analyzer.find_relevant_files(repo_path, task)
         if relevant_files:
-            analysis = await repo_analyzer.analyze_changes(repo_path, relevant_files, task)
-            return jsonify({
-                "files": relevant_files,
-                "recommendations": analysis.recommendations,
-                "needsConfirmation": False,
-            })
+            analysis = await repo_analyzer.analyze_changes(
+                repo_path, relevant_files, task
+            )
+            return jsonify(
+                {
+                    "files": relevant_files,
+                    "recommendations": analysis.recommendations,
+                    "needsConfirmation": False,
+                }
+            )
         else:
             return jsonify({"error": "Keine relevanten Dateien gefunden"}), 400
 
     except Exception as e:
         print(f"Error during confirm analysis: {str(e)}")
         return jsonify({"error": f"Analyse-Fehler: {str(e)}"}), 500
+
 
 @app.route("/api/ask", methods=["POST"])
 @async_route
@@ -135,7 +162,14 @@ async def ask_followup():
         # Retrieve the repo_analyzer instance from the RequestManager for follow-up
         analysis_request = request_manager.get_analyzer(request_id)
         if not analysis_request:
-            return jsonify({"error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Ungültige Anforderungs-ID oder die Anfrage ist abgelaufen."
+                    }
+                ),
+                400,
+            )
 
         repo_analyzer = analysis_request["repo_analyzer"]
         response = await repo_analyzer.ask_followup_question(question)
@@ -145,7 +179,8 @@ async def ask_followup():
         print(f"Error during follow-up: {str(e)}")
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
 
-@app.route('/')
+
+@app.route("/")
 def home():
     return """
     <!DOCTYPE html>
@@ -344,6 +379,7 @@ def home():
     </body>
     </html>
 """
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=443)

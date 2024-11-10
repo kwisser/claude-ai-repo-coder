@@ -1,15 +1,38 @@
 import React, { useState } from 'react';
 import ResponseDisplay from './ResponseDisplay';
 import api from './services/api';
-import './styles.css';
 import ConfirmationDialog from './ConfirmationDialog';
+import {
+  Container,
+  Paper,
+  TextField,
+  Button,
+  Typography,
+  Switch,
+  FormControlLabel,
+  Box,
+  Divider,
+} from '@mui/material';
+import { addDoc, serverTimestamp } from 'firebase/firestore';
+import { chatsCollection } from './firebase';
+import { useContext } from 'react';
+import { AuthContext } from './AuthProvider';
+import Header from './Header';
+import { Drawer, List, ListItem, ListItemText, IconButton } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 
-function App() {
+function App({ darkMode, setDarkMode }) {
+  const { user } = useContext(AuthContext);
   const [formData, setFormData] = useState({ task: '', repoPath: '' });
   const [state, setState] = useState({ loading: false, error: null, response: null });
   const [followUpQuestion, setFollowUpQuestion] = useState('');
   const [confirmation, setConfirmation] = useState(null);
   const [requestId, setRequestId] = useState(null);  // Store the request ID here
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [allConversations, setAllConversations] = useState([]);
+  const [currentConversationId, setCurrentConversationId] = useState(null); 
+  
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -20,11 +43,21 @@ function App() {
     e.preventDefault();
     setState({ loading: true, error: null, response: null });
     setRequestId(null);
-
+  
     try {
       const estimationResult = await api.analyzeRepository(formData.task, formData.repoPath, false);
-
+  
       if (estimationResult.needsConfirmation) {
+        const newConversation = {
+          id: estimationResult.requestId,  // Use requestId as the conversation ID
+          type: 'initial',
+          task: formData.task,
+          response: estimationResult,
+          followUps: []
+        };
+        setConversationHistory([newConversation]);
+        setAllConversations(prev => [...prev, newConversation]);
+        setCurrentConversationId(estimationResult.requestId);  // Set currentConversationId
         setState({ loading: false, error: null, response: null });
         setConfirmation({
           estimatedTokens: estimationResult.estimatedTokens,
@@ -33,7 +66,7 @@ function App() {
         setRequestId(estimationResult.requestId);  // Save the request ID for confirmation
         return;
       }
-
+  
       setState({ loading: false, error: null, response: estimationResult });
     } catch (err) {
       setState({ loading: false, error: err.message, response: null });
@@ -56,65 +89,156 @@ function App() {
     e.preventDefault();
     if (!followUpQuestion.trim()) return;
     setState(prev => ({ ...prev, loading: true, error: null }));
-
+  
     try {
       const result = await api.askFollowUpQuestion(followUpQuestion, requestId);  // Send requestId with follow-up
-      setState(prev => ({
-        loading: false,
-        error: null,
-        response: {
-          ...prev.response,
-          followUpAnswers: [
-            ...(prev.response?.followUpAnswers || []),
-            { question: followUpQuestion, answer: result.response }
-          ]
+  
+      setAllConversations(prev => prev.map(conv => {
+        if (conv.id === currentConversationId) {
+          return {
+            ...conv,
+            followUps: [...conv.followUps, {
+              question: followUpQuestion,
+              response: result.response,
+              timestamp: new Date()
+            }]
+          };
         }
+        return conv;
       }));
+  
+      if (user) {
+        await addDoc(chatsCollection, {
+          userId: user.uid,
+          question: followUpQuestion,
+          response: result.response,
+          timestamp: serverTimestamp(),
+          type: 'followUp',
+          requestId: requestId
+        });
+      }
+  
+      setConversationHistory(prev => [...prev, {
+        type: 'followUp',
+        question: followUpQuestion,
+        response: result.response
+      }]);
       setFollowUpQuestion('');
+      setState(prev => ({ ...prev, loading: false, error: null }));
     } catch (err) {
       setState(prev => ({ ...prev, loading: false, error: err.message }));
     }
   };
 
-  return (
-    <div className="app-container">
-      <header className="app-header">
-        <h1>Code Analyzer</h1>
-        <p className="subtitle">Analysiere dein Repository und erhalte Empfehlungen</p>
-      </header>
 
-      <main className="main-content">
-        <form onSubmit={handleSubmit} className="analysis-form">
-          <div className="form-group">
-            <label htmlFor="repoPath">Repository Pfad:</label>
-            <input
-              id="repoPath"
+  return (<>
+    <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+      
+      <IconButton
+        onClick={() => setDrawerOpen(true)}
+        sx={{ position: 'fixed', left: 16, top: 70 }}
+      >
+        <MenuIcon />
+      </IconButton>
+
+      <Drawer
+        anchor="left"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <List sx={{ width: 300 }}>
+          {allConversations.map((conv) => (
+            <React.Fragment key={conv.id}>
+              <ListItem>
+                <ListItemText
+                  primary={new Date(conv.timestamp).toLocaleString()}
+                  secondary={
+                    <Box>
+                      <Typography variant="body2" color="text.primary">
+                        Task: {conv.task.substring(0, 50)}...
+                      </Typography>
+                      {conv.followUps.length > 0 && (
+                        <Typography variant="body2" color="text.secondary">
+                          {conv.followUps.length} follow-up questions
+                        </Typography>
+                      )}
+                    </Box>
+                  }
+                />
+              </ListItem>
+              {conv.followUps.map((followUp, index) => (
+                <ListItem key={index} sx={{ pl: 4 }}>
+                  <ListItemText
+                    secondary={
+                      <Typography variant="body2" color="text.secondary">
+                        Q: {followUp.question.substring(0, 30)}...
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+              <Divider />
+            </React.Fragment>
+          ))}
+        </List>
+      </Drawer>
+    <Container maxWidth="md">
+      <Box sx={{ my: 4 }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={!!darkMode} // Ensure boolean type
+              onChange={() => setDarkMode(!darkMode)}
+              color="primary"
+            />
+          }
+          label="Dark Mode"
+        />
+
+        <Typography variant="h3" component="h1" gutterBottom align="center">
+          Code Analyzer
+        </Typography>
+        <Typography variant="subtitle1" gutterBottom align="center">
+          Analysiere dein Repository und erhalte Empfehlungen
+        </Typography>
+
+        <Paper sx={{ p: 3, mt: 3 }}>
+          <form onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              label="Repository Pfad"
               name="repoPath"
-              type="text"
               value={formData.repoPath}
               onChange={handleInputChange}
-              placeholder="/pfad/zum/repository"
+              margin="normal"
+              variant="outlined"
               required
               disabled={state.loading}
             />
-          </div>
-          <div className="form-group">
-            <label htmlFor="task">Aufgabenbeschreibung:</label>
-            <textarea
-              id="task"
+            <TextField
+              fullWidth
+              label="Aufgabenbeschreibung"
               name="task"
               value={formData.task}
               onChange={handleInputChange}
-              placeholder="Beschreibe deine Aufgabe..."
-              required
+              margin="normal"
+              variant="outlined"
+              multiline
               rows={4}
+              required
               disabled={state.loading}
             />
-          </div>
-          <button type="submit" className="submit-button" disabled={state.loading}>
-            {state.loading ? 'Analysiere...' : 'Analysieren'}
-          </button>
-        </form>
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              disabled={state.loading}
+              sx={{ mt: 2 }}
+            >
+              {state.loading ? 'Analysiere...' : 'Analysieren'}
+            </Button>
+          </form>
+        </Paper>
 
         {state.error && <div className="error-message">{state.error}</div>}
 
@@ -155,46 +279,88 @@ function App() {
           />
         )}
 
+        {conversationHistory.length > 0 && (
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Konversationsverlauf:
+            </Typography>
+            {conversationHistory.map((item, index) => (
+              <Box key={index} sx={{ mb: 3 }}>
+                {item.type === 'initial' ? (
+                  <>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      Ursprüngliche Aufgabe:
+                    </Typography>
+                    <Typography paragraph>{item.task}</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      Erste Analyse:
+                    </Typography>
+                    <ResponseDisplay content={item.response.recommendations} />
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      Nachfrage:
+                    </Typography>
+                    <Typography paragraph>{item.question}</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      Antwort:
+                    </Typography>
+                    <ResponseDisplay content={item.response} />
+                  </>
+                )}
+              </Box>
+            ))}
+          </Paper>
+        )}
+
         {state.response && (
-          <form onSubmit={handleFollowUpQuestion} className="follow-up-form">
-            <h3>Weitere Fragen?</h3>
-            <div className="input-group">
-              <input
-                type="text"
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Weitere Fragen?
+            </Typography>
+            <Box component="form" onSubmit={handleFollowUpQuestion}>
+              <TextField
+                fullWidth
                 value={followUpQuestion}
                 onChange={(e) => setFollowUpQuestion(e.target.value)}
                 placeholder="Stelle eine Nachfrage..."
                 disabled={state.loading}
+                sx={{ mr: 2 }}
               />
-              <button
+              <Button
                 type="submit"
+                variant="contained"
                 disabled={state.loading || !followUpQuestion.trim()}
-                className="follow-up-button"
+                sx={{ mt: 2 }}
               >
                 Fragen
-              </button>
-            </div>
-          </form>
+              </Button>
+            </Box>
+          </Paper>
         )}
         {state.response?.followUpAnswers && state.response.followUpAnswers.length > 0 && (
-          <div className="follow-up-answers">
-            <h3>Nachfragen & Antworten:</h3>
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Nachfragen & Antworten:
+            </Typography>
             {state.response.followUpAnswers.map((qa, index) => (
-              <div key={index} className="qa-pair">
-                <div className="question">
-                  <strong>Frage:</strong>
-                  <p>{qa.question}</p>
-                </div>
-                <div className="answer">
-                  <strong>Antwort:</strong>
-                  <ResponseDisplay content={qa.answer} />
-                </div>
-              </div>
+              <Box key={index} sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                  Frage:
+                </Typography>
+                <Typography paragraph>{qa.question}</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                  Antwort:
+                </Typography>
+                <ResponseDisplay content={qa.answer} />
+              </Box>
             ))}
-          </div>
+          </Paper>
         )}
-      </main>
-    </div>
+      </Box>
+    </Container>
+    </>
   );
 }
 
