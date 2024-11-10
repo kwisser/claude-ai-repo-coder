@@ -40,7 +40,7 @@ const ThemedApp = React.memo(function ThemedApp() {
                     element: <Login />,
                 },
                 {
-                    path: 'signup',
+                    path: 'sign-up',
                     element: <SignUp />,
                 },
             ],

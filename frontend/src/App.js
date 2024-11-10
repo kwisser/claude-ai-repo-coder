@@ -34,13 +34,11 @@ function App({ darkMode, setDarkMode }) {
   const [allConversations, setAllConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
 
-
   useEffect(() => {
     // Load conversations from localStorage on mount
     const savedConversations = localStorage.getItem('conversations');
     if (savedConversations) {
       setAllConversations(JSON.parse(savedConversations));
-
     }
   }, []);
 
@@ -56,7 +54,7 @@ function App({ darkMode, setDarkMode }) {
     setRequestId(null);
 
     try {
-      const estimationResult = await analyzeRepository(formData.task, formData.repoPath, false);
+      const estimationResult = await api.analyzeRepository(formData.task, formData.repoPath, false);
 
       if (estimationResult.needsConfirmation) {
         const newConversation = {
