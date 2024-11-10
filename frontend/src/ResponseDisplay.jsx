@@ -42,7 +42,7 @@ function ResponseDisplay({ content }) {
           <Typography
             key={`text-${index}`}
             variant="body1"
-            component="p"
+            component="div"
             sx={{
               mb: 1,
               whiteSpace: "pre-wrap",

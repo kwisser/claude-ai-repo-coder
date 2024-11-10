@@ -1,6 +1,6 @@
-import React, { useContext } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { AuthContext } from './AuthProvider';
+import React, { useContext } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { AuthContext } from "./AuthProvider";
 import {
   AppBar,
   Toolbar,
@@ -13,9 +13,9 @@ import {
   Box,
   Switch,
   FormControlLabel,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import GoogleIcon from '@mui/icons-material/Google';
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import GoogleIcon from "@mui/icons-material/Google";
 
 const Header = ({ darkMode, setDarkMode }) => {
   const { user, logOut, loading } = useContext(AuthContext);
@@ -33,8 +33,8 @@ const Header = ({ darkMode, setDarkMode }) => {
   const handleSignOut = () => {
     logOut()
       .then(() => {
-        console.log('User logged out successfully');
-        navigate('/login');
+        console.log("User logged out successfully");
+        navigate("/login");
       })
       .catch((error) => console.error(error));
   };
@@ -58,24 +58,13 @@ const Header = ({ darkMode, setDarkMode }) => {
   );
 
   return (
-    <AppBar position="static">
+    <AppBar position="fixed">
+      {" "}
+      {/* Change to fixed position */}
       <Toolbar>
-        <IconButton
-          edge="start"
-          color="inherit"
-          aria-label="menu"
-          onClick={handleMenu}
-          sx={{ mr: 2 }}
-        >
-          <MenuIcon />
-        </IconButton>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          Firebase Auth
+        <Typography variant="h6" sx={{ flexGrow: 0, mr: 3 }}>
+          Code Analyzer
         </Typography>
-        <FormControlLabel
-          control={<Switch checked={darkMode} onChange={() => setDarkMode(!darkMode)} />}
-          label="Dark Mode"
-        />
         {navLinks}
         {user && (
           <>
@@ -93,13 +82,13 @@ const Header = ({ darkMode, setDarkMode }) => {
               id="menu-appbar"
               anchorEl={anchorEl}
               anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
               keepMounted
               transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
               open={Boolean(anchorEl)}
               onClose={handleClose}

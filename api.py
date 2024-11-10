@@ -6,6 +6,11 @@ import os
 import asyncio
 import uuid
 
+from google.cloud import firestore
+
+# Initialize Firestore client
+db = firestore.Client()
+
 app = Flask(__name__)
 CORS(app)
 
@@ -133,6 +138,12 @@ async def confirm_analysis():
             analysis = await repo_analyzer.analyze_changes(
                 repo_path, relevant_files, task
             )
+            token_doc = db.collection('token_usage').document()
+            token_doc.set({
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'tokens_used': analysis.token_count,
+            'request_id': request_id
+            })
             return jsonify(
                 {
                     "files": relevant_files,

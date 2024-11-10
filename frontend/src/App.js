@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ResponseDisplay from './ResponseDisplay';
 import api from './services/api';
 import ConfirmationDialog from './ConfirmationDialog';
@@ -13,13 +13,14 @@ import {
   Box,
   Divider,
 } from '@mui/material';
-import { addDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { chatsCollection } from './firebase';
 import { useContext } from 'react';
 import { AuthContext } from './AuthProvider';
 import Header from './Header';
 import { Drawer, List, ListItem, ListItemText, IconButton } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 function App({ darkMode, setDarkMode }) {
   const { user } = useContext(AuthContext);
@@ -31,8 +32,16 @@ function App({ darkMode, setDarkMode }) {
   const [conversationHistory, setConversationHistory] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [allConversations, setAllConversations] = useState([]);
-  const [currentConversationId, setCurrentConversationId] = useState(null); 
-  
+  const [currentConversationId, setCurrentConversationId] = useState(null);
+
+  useEffect(() => {
+    // Load conversations from localStorage on mount
+    const savedConversations = localStorage.getItem('conversations');
+    if (savedConversations) {
+      setAllConversations(JSON.parse(savedConversations));
+    }
+  }, []);
+
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -43,30 +52,35 @@ function App({ darkMode, setDarkMode }) {
     e.preventDefault();
     setState({ loading: true, error: null, response: null });
     setRequestId(null);
-  
+
     try {
       const estimationResult = await api.analyzeRepository(formData.task, formData.repoPath, false);
-  
+
       if (estimationResult.needsConfirmation) {
         const newConversation = {
           id: estimationResult.requestId,  // Use requestId as the conversation ID
           type: 'initial',
           task: formData.task,
           response: estimationResult,
-          followUps: []
+          followUps: [],
+          timestamp: new Date().toISOString() 
         };
         setConversationHistory([newConversation]);
-        setAllConversations(prev => [...prev, newConversation]);
         setCurrentConversationId(estimationResult.requestId);  // Set currentConversationId
         setState({ loading: false, error: null, response: null });
         setConfirmation({
           estimatedTokens: estimationResult.estimatedTokens,
           estimatedCost: estimationResult.estimatedCost
         });
-        setRequestId(estimationResult.requestId);  // Save the request ID for confirmation
+        setRequestId(estimationResult.requestId);
+        setAllConversations(prev => {
+          const newConversations = [...prev, newConversation];
+          localStorage.setItem('conversations', JSON.stringify(newConversations));
+          return newConversations;
+        });
         return;
       }
-  
+
       setState({ loading: false, error: null, response: estimationResult });
     } catch (err) {
       setState({ loading: false, error: err.message, response: null });
@@ -85,14 +99,41 @@ function App({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleDeleteConversation = async (convId) => {
+    try {
+      // Remove from local storage
+      setAllConversations(prev => {
+        const newConversations = prev.filter(conv => conv.id !== convId);
+        localStorage.setItem('conversations', JSON.stringify(newConversations));
+        return newConversations;
+      });
+  
+      // Clear current conversation if it's the one being deleted
+      if (currentConversationId === convId) {
+        setCurrentConversationId(null);
+        setConversationHistory([]);
+        setState({ loading: false, error: null, response: null });
+      }
+  
+      // Remove from Firestore if user is logged in
+      if (user) {
+        // Create proper document reference before deleting
+        const docRef = doc(chatsCollection, convId);
+        await deleteDoc(docRef);
+      }
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+    }
+  };
+
   const handleFollowUpQuestion = async (e) => {
     e.preventDefault();
     if (!followUpQuestion.trim()) return;
     setState(prev => ({ ...prev, loading: true, error: null }));
-  
+
     try {
       const result = await api.askFollowUpQuestion(followUpQuestion, requestId);  // Send requestId with follow-up
-  
+
       setAllConversations(prev => prev.map(conv => {
         if (conv.id === currentConversationId) {
           return {
@@ -106,7 +147,7 @@ function App({ darkMode, setDarkMode }) {
         }
         return conv;
       }));
-  
+
       if (user) {
         await addDoc(chatsCollection, {
           userId: user.uid,
@@ -117,7 +158,7 @@ function App({ darkMode, setDarkMode }) {
           requestId: requestId
         });
       }
-  
+
       setConversationHistory(prev => [...prev, {
         type: 'followUp',
         question: followUpQuestion,
@@ -130,59 +171,78 @@ function App({ darkMode, setDarkMode }) {
     }
   };
 
+  const handleConversationClick = (conv) => {
+    setCurrentConversationId(conv.id);
+    setRequestId(conv.id);
+    setConversationHistory([conv, ...conv.followUps]);
+    setState({ loading: false, error: null, response: conv.response });
+    setDrawerOpen(false);
+  };
+
 
   return (<>
     <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-      
-      <IconButton
-        onClick={() => setDrawerOpen(true)}
-        sx={{ position: 'fixed', left: 16, top: 70 }}
-      >
-        <MenuIcon />
-      </IconButton>
 
-      <Drawer
-        anchor="left"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-      >
-        <List sx={{ width: 300 }}>
-          {allConversations.map((conv) => (
-            <React.Fragment key={conv.id}>
-              <ListItem>
+    <IconButton
+      onClick={() => setDrawerOpen(true)}
+      sx={{ position: 'fixed', left: 16, top: 70 }}
+    >
+      <MenuIcon />
+    </IconButton>
+
+    <Drawer
+      anchor="left"
+      open={drawerOpen}
+      onClose={() => setDrawerOpen(false)}
+    >
+      <List sx={{ width: 300 }}>
+        {allConversations.map((conv) => (
+          <React.Fragment key={conv.id}>
+            <ListItem
+              onClick={() => handleConversationClick(conv)}
+              selected={currentConversationId === conv.id}
+              secondaryAction={
+                <IconButton edge="end" onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteConversation(conv.id);
+                }}>
+                  <DeleteIcon />
+                </IconButton>
+              }
+            >
+              <ListItemText
+                primary={new Date(conv.timestamp).toLocaleString()}
+                secondary={
+                  <>
+                    <span>Task: {conv.task.substring(0, 50)}...</span>
+                    {conv.followUps.length > 0 && (
+                      <span style={{ display: 'block' }}>
+                        {conv.followUps.length} follow-up questions
+                      </span>
+                    )}
+                  </>
+                }
+              />
+            </ListItem>
+            {conv.followUps.map((followUp, index) => (
+              <ListItem key={index} sx={{ pl: 4 }}>
                 <ListItemText
-                  primary={new Date(conv.timestamp).toLocaleString()}
-                  secondary={
-                    <Box>
-                      <Typography variant="body2" color="text.primary">
-                        Task: {conv.task.substring(0, 50)}...
-                      </Typography>
-                      {conv.followUps.length > 0 && (
-                        <Typography variant="body2" color="text.secondary">
-                          {conv.followUps.length} follow-up questions
-                        </Typography>
-                      )}
+                  secondary=
+                  {
+                    <Box component="div"> {/* Change from Typography to Box with div component */}
+                      Q: {followUp.question.substring(0, 30)}...
                     </Box>
                   }
+
                 />
               </ListItem>
-              {conv.followUps.map((followUp, index) => (
-                <ListItem key={index} sx={{ pl: 4 }}>
-                  <ListItemText
-                    secondary={
-                      <Typography variant="body2" color="text.secondary">
-                        Q: {followUp.question.substring(0, 30)}...
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-              <Divider />
-            </React.Fragment>
-          ))}
-        </List>
-      </Drawer>
-    <Container maxWidth="md">
+            ))}
+            <Divider />
+          </React.Fragment>
+        ))}
+      </List>
+    </Drawer>
+    <Container maxWidth="md" sx={{ mt: 8 }}> 
       <Box sx={{ my: 4 }}>
         <FormControlLabel
           control={
@@ -360,7 +420,7 @@ function App({ darkMode, setDarkMode }) {
         )}
       </Box>
     </Container>
-    </>
+  </>
   );
 }
 
