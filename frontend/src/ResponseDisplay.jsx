@@ -1,34 +1,87 @@
-import React from 'react';
-import CodeBlock from './CodeBlock';
+import React from "react";
+import { Typography, Paper, Box } from "@mui/material";
+import CodeBlock from "./CodeBlock";
 
-const ResponseDisplay = ({ content }) => {
+function ResponseDisplay({ content }) {
   if (!content) return null;
 
-  // Split content by code blocks (marked by ```)
-  const blocks = content.split('```');
+  const renderContent = () => {
+    let inCodeBlock = false;
+    let codeContent = "";
+    const elements = [];
 
-  return (
-    <div className="response-container">
-      {blocks.map((block, index) => {
-        if (index % 2 === 0) {
-          // Text block - Split by newlines and render paragraphs
-          return block.split('\n').map((line, i) => (
-            line.trim() && <p key={`${index}-${i}`}>{line}</p>
-          ));
+    content.split("\n").forEach((line, index) => {
+      // Start of code block
+      if (line.startsWith("```")) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          codeContent = "";
         } else {
-          // Code block - First line is language, rest is code
-          const [language, ...codeLines] = block.split('\n');
-          return (
+          // End of code block
+          elements.push(
             <CodeBlock
               key={`code-${index}`}
-              language={language.trim()}
-              code={codeLines.join('\n').trim()}
+              code={codeContent.trim()}
+              language={line.slice(3).trim()}
             />
           );
+          inCodeBlock = false;
         }
-      })}
-    </div>
+        return;
+      }
+
+      // Inside code block
+      if (inCodeBlock) {
+        codeContent += line + "\n";
+        return;
+      }
+
+      // Regular text
+      if (line.trim()) {
+        elements.push(
+          <Typography
+            key={`text-${index}`}
+            variant="body1"
+            component="div"
+            sx={{
+              mb: 1,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {line}
+          </Typography>
+        );
+      } else {
+        // Empty line
+        elements.push(<Box key={`space-${index}`} sx={{ height: "1rem" }} />);
+      }
+    });
+
+    return elements;
+  };
+
+  return (
+    <Paper
+      elevation={2}
+      sx={{
+        p: 3,
+        mt: 2,
+        backgroundColor: (theme) =>
+          theme.palette.mode === "dark" ? "background.paper" : "#fff",
+        "& pre": {
+          margin: 0,
+          padding: 2,
+          borderRadius: 1,
+          overflow: "auto",
+          backgroundColor: (theme) =>
+            theme.palette.mode === "dark" ? "#1e1e1e" : "#f5f5f5",
+        },
+      }}
+    >
+      <Box sx={{ "& > :last-child": { mb: 0 } }}>{renderContent()}</Box>
+    </Paper>
   );
-};
+}
 
 export default ResponseDisplay;
