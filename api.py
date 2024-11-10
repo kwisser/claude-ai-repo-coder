@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from claude_client import ClaudeClient
+from request_logger import RequestLogger
 from repo_analyzer import RepoAnalyzer
 import os
 import asyncio
@@ -41,6 +42,7 @@ class RequestManager:
 
 
 request_manager = RequestManager()
+request_logger = RequestLogger()
 
 
 def async_route(f):
@@ -65,6 +67,11 @@ async def analyze_repository():
         task = data.get("task")
         repo_path = data.get("repoPath")
         confirm = data.get("confirm", False)
+
+        request_logger.log_request(
+            request_type="analyze",
+            content=data,
+        )
 
         if not task or not repo_path:
             return jsonify({"error": "Task und Repository-Pfad sind erforderlich"}), 400
@@ -113,6 +120,11 @@ async def confirm_analysis():
         data = request.get_json()
         request_id = data.get("requestId")
 
+        request_logger.log_request(
+            request_type="confirm",
+            content=data,
+        )
+
         # Retrieve the repo_analyzer instance from the RequestManager
         analysis_request = request_manager.get_analyzer(request_id)
         if not analysis_request:
@@ -156,6 +168,11 @@ async def ask_followup():
         data = request.get_json()
         question = data.get("question")
         request_id = data.get("requestId")
+
+        request_logger.log_request(
+            request_type="followup",
+            content=data,
+        )
 
         if not question or not request_id:
             return jsonify({"error": "Frage und requestId sind erforderlich"}), 400

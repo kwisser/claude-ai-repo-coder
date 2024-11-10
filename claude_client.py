@@ -1,6 +1,7 @@
 from anthropic import AnthropicVertex
 from color_printer import ColorPrinter
 from token_estimator import TokenEstimator
+from request_logger import RequestLogger
 from config import MAX_OUTPUT_TOKEN, INPUT_TOKEN_PRICE, OUTPUT_TOKEN_PRICE
 from utils import prompt_user_confirmation
 import sys
@@ -16,6 +17,7 @@ class ClaudeClient:
         self.printer = ColorPrinter()
         self.token_estimator = TokenEstimator()
         self.message_history = []
+        self.request_logger = RequestLogger()  # Add logger
 
     def send_message(self, prompt: str) -> dict:
         estimated_input_tokens = self.token_estimator.estimate_tokens(prompt)
@@ -35,6 +37,18 @@ class ClaudeClient:
             max_tokens=MAX_OUTPUT_TOKEN,
             messages=messages,
             model="claude-3-5-sonnet-v2@20241022"
+        )
+
+        self.request_logger.log_request(
+            request_type="claude_message",
+            content=prompt,
+            response=response.content[0].text,
+            metadata={
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+                "cost_input": response.usage.input_tokens * INPUT_TOKEN_PRICE,
+                "cost_output": response.usage.output_tokens * OUTPUT_TOKEN_PRICE
+            }
         )
 
         self.message_history.append({"role": "user", "content": prompt})

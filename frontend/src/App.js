@@ -145,10 +145,10 @@ function App({ darkMode, setDarkMode }) {
     e.preventDefault();
     if (!followUpQuestion.trim()) return;
     setState(prev => ({ ...prev, loading: true, error: null }));
-  
+
     try {
       const result = await api.askFollowUpQuestion(followUpQuestion, requestId);
-  
+
       setAllConversations(prev => {
         const newConversations = prev.map(conv => {
           if (conv.id === currentConversationId) {
@@ -165,7 +165,7 @@ function App({ darkMode, setDarkMode }) {
         localStorage.setItem('conversations', JSON.stringify(newConversations));
         return newConversations;
       });
-  
+
       if (user) {
         await addDoc(chatsCollection, {
           userId: user.uid,
@@ -176,7 +176,7 @@ function App({ darkMode, setDarkMode }) {
           requestId: requestId
         });
       }
-  
+
       setConversationHistory(prev => [...prev, {
         type: 'followUp',
         question: followUpQuestion,
@@ -296,17 +296,6 @@ function App({ darkMode, setDarkMode }) {
     </Drawer>
     <Container maxWidth="md" sx={{ mt: 8 }}>
       <Box sx={{ my: 4 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={!!darkMode} // Ensure boolean type
-              onChange={() => setDarkMode(!darkMode)}
-              color="primary"
-            />
-          }
-          label="Dark Mode"
-        />
-
         <Typography variant="h3" component="h1" gutterBottom align="center">
           Code Analyzer
         </Typography>
