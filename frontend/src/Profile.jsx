@@ -12,13 +12,13 @@ const Profile = () => {
       <Header />
       <Container maxWidth="sm">
         <Paper elevation={3} sx={{ p: 4, mt: 8 }}>
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: "center" }}>
             <Avatar
               src={user?.photoURL}
-              sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
+              sx={{ width: 120, height: 120, mx: "auto", mb: 2 }}
             />
             <Typography variant="h4" gutterBottom>
-              {user?.displayName || 'User'}
+              {user?.displayName || "User"}
             </Typography>
           </Box>
 
@@ -40,7 +40,8 @@ const Profile = () => {
             </Grid>
             <Grid item xs={12}>
               <Typography variant="body1">
-                <strong>Email verified:</strong> {user?.emailVerified ? 'Yes' : 'No'}
+                <strong>Email verified:</strong>{" "}
+                {user?.emailVerified ? "Yes" : "No"}
               </Typography>
             </Grid>
             <Grid item xs={12}>

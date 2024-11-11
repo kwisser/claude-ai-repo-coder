@@ -1,6 +1,7 @@
-import React, { useContext } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { AuthContext } from './AuthProvider';
+import React, { useContext } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { AuthContext } from "./AuthProvider";
+import { GlobalStateContext } from "./GlobalStateContext";
 import {
   AppBar,
   Toolbar,
@@ -10,14 +11,14 @@ import {
   MenuItem,
   Button,
   Avatar,
-  Box,
   Switch,
   FormControlLabel,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
 
-const Header = ({ darkMode, setDarkMode }) => {
-  const { user, logOut, loading } = useContext(AuthContext);
+const Header = () => {
+  const { user, logOut } = useContext(AuthContext);
+  const { state, toggleDarkMode } = useContext(GlobalStateContext);
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
 
@@ -32,8 +33,8 @@ const Header = ({ darkMode, setDarkMode }) => {
   const handleSignOut = () => {
     logOut()
       .then(() => {
-        console.log('User logged out successfully');
-        navigate('/login');
+        console.log("User logged out successfully");
+        navigate("/login");
       })
       .catch((error) => console.error(error));
   };
@@ -69,12 +70,14 @@ const Header = ({ darkMode, setDarkMode }) => {
           <MenuIcon />
         </IconButton>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
             Firebase Auth
           </Link>
         </Typography>
         <FormControlLabel
-          control={<Switch checked={darkMode} onChange={() => setDarkMode(!darkMode)} />}
+          control={
+            <Switch checked={state.darkMode} onChange={toggleDarkMode} />
+          }
           label="Dark Mode"
         />
         {navLinks}
@@ -94,13 +97,13 @@ const Header = ({ darkMode, setDarkMode }) => {
               id="menu-appbar"
               anchorEl={anchorEl}
               anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
               keepMounted
               transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
               open={Boolean(anchorEl)}
               onClose={handleClose}
